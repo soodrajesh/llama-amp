@@ -22,7 +22,6 @@ export class AudioEngine {
     this.storedPreamp = 0;
     this.storedVolume = 0.8;
     this.storedBalance = 0;
-    this.currentObjectUrl = null;
   }
 
   /** Must be called from a user-gesture handler (e.g. the Play button). */
@@ -75,14 +74,8 @@ export class AudioEngine {
   }
 
   async loadTrack(filePath) {
-    const { buffer, mimeType } = await window.api.readAudioFile(filePath);
-    const blob = new Blob([buffer], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-
-    if (this.currentObjectUrl) {
-      URL.revokeObjectURL(this.currentObjectUrl);
-    }
-    this.currentObjectUrl = url;
+    const url = await window.api.mediaUrlFor(filePath);
+    if (!url) throw new Error(`Rejected: not a playable audio file path (${filePath})`);
     this.audioElement.src = url;
   }
 
@@ -124,9 +117,6 @@ export class AudioEngine {
     if (this.panner) this.panner.pan.value = balanceNeg1To1;
   }
 
-  dispose() {
-    if (this.currentObjectUrl) URL.revokeObjectURL(this.currentObjectUrl);
-  }
 }
 
 function dbToGain(db) {

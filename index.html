@@ -2,14 +2,14 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <!-- blob: is required for media because tracks are handed to <audio> as object
-         URLs; ws:/http: on localhost are only reachable in dev (Vite HMR). -->
+    <!-- llama-media: is the custom scheme that streams local tracks straight from
+         disk (see main.js); ws:/http: on localhost are only reachable in dev (Vite HMR). -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self';
                style-src 'self' 'unsafe-inline';
-               media-src 'self' blob:;
+               media-src 'self' llama-media:;
                img-src 'self' data:;
                font-src 'self';
                connect-src 'self' ws://localhost:* http://localhost:*;

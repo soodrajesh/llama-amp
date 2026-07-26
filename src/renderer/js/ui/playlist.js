@@ -9,14 +9,14 @@ export function initPlaylist(player) {
   let selectedIndex = -1;
   let dragFromIndex = -1;
 
-  function render() {
+  // Full DOM rebuild: only needed when the track list itself changes shape.
+  function renderList() {
     list.innerHTML = '';
     player.tracks.forEach((track, index) => {
       const li = document.createElement('li');
       li.className = 'pl-item';
       li.draggable = true;
-      if (index === selectedIndex) li.classList.add('selected');
-      if (index === player.currentIndex) li.classList.add('playing');
+      li.dataset.index = String(index);
 
       const idx = document.createElement('span');
       idx.className = 'pl-index';
@@ -27,29 +27,56 @@ export function initPlaylist(player) {
       name.textContent = track.name;
 
       li.append(idx, name);
-
-      li.addEventListener('click', () => {
-        selectedIndex = index;
-        render();
-      });
-      li.addEventListener('dblclick', () => player.playIndex(index));
-
-      li.addEventListener('dragstart', () => {
-        dragFromIndex = index;
-        li.classList.add('dragging');
-      });
-      li.addEventListener('dragend', () => li.classList.remove('dragging'));
-      li.addEventListener('dragover', (e) => e.preventDefault());
-      li.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (dragFromIndex === -1) return;
-        player.reorder(dragFromIndex, index);
-        dragFromIndex = -1;
-      });
-
       list.appendChild(li);
     });
+    updateHighlights();
   }
+
+  // Play/pause and track-change only need class toggles on existing rows, not a rebuild.
+  function updateHighlights() {
+    list.querySelectorAll('.pl-item').forEach((li) => {
+      const index = Number(li.dataset.index);
+      li.classList.toggle('selected', index === selectedIndex);
+      li.classList.toggle('playing', index === player.currentIndex);
+    });
+  }
+
+  // Delegated listeners on the <ul> instead of six per row, so renderList() doesn't
+  // need to re-attach anything and updateHighlights() never touches listeners at all.
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('.pl-item');
+    if (!li) return;
+    selectedIndex = Number(li.dataset.index);
+    updateHighlights();
+  });
+
+  list.addEventListener('dblclick', (e) => {
+    const li = e.target.closest('.pl-item');
+    if (li) player.playIndex(Number(li.dataset.index));
+  });
+
+  list.addEventListener('dragstart', (e) => {
+    const li = e.target.closest('.pl-item');
+    if (!li) return;
+    dragFromIndex = Number(li.dataset.index);
+    li.classList.add('dragging');
+  });
+
+  list.addEventListener('dragend', (e) => {
+    e.target.closest('.pl-item')?.classList.remove('dragging');
+  });
+
+  list.addEventListener('dragover', (e) => {
+    if (e.target.closest('.pl-item')) e.preventDefault();
+  });
+
+  list.addEventListener('drop', (e) => {
+    const li = e.target.closest('.pl-item');
+    if (!li || dragFromIndex === -1) return;
+    e.preventDefault();
+    player.reorder(dragFromIndex, Number(li.dataset.index));
+    dragFromIndex = -1;
+  });
 
   addBtn.addEventListener('click', async () => {
     const paths = await window.api.openAudioFiles();
@@ -70,9 +97,9 @@ export function initPlaylist(player) {
   saveBtn.addEventListener('click', () => player.savePlaylist());
   loadBtn.addEventListener('click', () => player.loadPlaylist());
 
-  player.addEventListener('playlist', render);
-  player.addEventListener('trackchange', render);
-  player.addEventListener('playstate', render);
+  player.addEventListener('playlist', renderList);
+  player.addEventListener('trackchange', updateHighlights);
+  player.addEventListener('playstate', updateHighlights);
 
-  render();
+  renderList();
 }

@@ -1,6 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, protocol, net } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 
 if (started) {
@@ -8,17 +9,25 @@ if (started) {
 }
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.flac']);
-const MIME_TYPES = {
-  '.mp3': 'audio/mpeg',
-  '.m4a': 'audio/mp4',
-  '.wav': 'audio/wav',
-  '.ogg': 'audio/ogg',
-  '.flac': 'audio/flac',
-};
+const MEDIA_SCHEME = 'llama-media';
 
 function isAllowedAudioPath(filePath) {
   return AUDIO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
+
+/** Renderer-side URL for a local track, handled by the MEDIA_SCHEME protocol below. */
+function toMediaUrl(filePath) {
+  return `${MEDIA_SCHEME}://play/${encodeURIComponent(filePath)}`;
+}
+
+// Must run before app is ready. "stream: true" lets protocol.handle return a
+// streamed Response instead of buffering the whole body first.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: MEDIA_SCHEME,
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
+  },
+]);
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
@@ -56,18 +65,12 @@ ipcMain.handle('dialog:openAudioFiles', async () => {
   return result.filePaths.filter(isAllowedAudioPath);
 });
 
-ipcMain.handle('fs:readAudioFile', async (_event, filePath) => {
-  if (typeof filePath !== 'string' || !isAllowedAudioPath(filePath)) {
-    throw new Error('Rejected: not an allowed audio file path');
-  }
+ipcMain.handle('media:urlFor', async (_event, filePath) => {
+  if (typeof filePath !== 'string' || !isAllowedAudioPath(filePath)) return null;
   const resolved = path.resolve(filePath);
   const stat = await fs.stat(resolved).catch(() => null);
-  if (!stat || !stat.isFile()) {
-    throw new Error('Rejected: file does not exist');
-  }
-  const buffer = await fs.readFile(resolved);
-  const ext = path.extname(resolved).toLowerCase();
-  return { buffer, mimeType: MIME_TYPES[ext] ?? 'application/octet-stream' };
+  if (!stat || !stat.isFile()) return null;
+  return toMediaUrl(resolved);
 });
 
 ipcMain.handle('fs:validatePaths', async (_event, filePaths) => {
@@ -124,6 +127,26 @@ ipcMain.handle('playlist:load', async () => {
 });
 
 app.whenReady().then(() => {
+  // Streams the file straight from disk via Chromium's own file-backed fetch,
+  // instead of reading it whole into a Buffer and copying it across IPC.
+  protocol.handle(MEDIA_SCHEME, async (request) => {
+    let filePath;
+    try {
+      filePath = decodeURIComponent(new URL(request.url).pathname.slice(1));
+    } catch {
+      return new Response('Bad Request', { status: 400 });
+    }
+    if (!isAllowedAudioPath(filePath)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+    const resolved = path.resolve(filePath);
+    const stat = await fs.stat(resolved).catch(() => null);
+    if (!stat || !stat.isFile()) {
+      return new Response('Not Found', { status: 404 });
+    }
+    return net.fetch(pathToFileURL(resolved).toString(), { headers: request.headers });
+  });
+
   createWindow();
 
   app.on('activate', () => {
