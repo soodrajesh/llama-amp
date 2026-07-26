@@ -16,8 +16,8 @@ A tiny retro MP3 player for the desktop, inspired by classic Winamp — original
 ## Getting started
 
 ```bash
-git clone https://github.com/soodrajesh/winamp-llama-player.git
-cd winamp-llama-player
+git clone https://github.com/soodrajesh/llama-amp.git
+cd llama-amp
 npm install
 npm start
 ```
