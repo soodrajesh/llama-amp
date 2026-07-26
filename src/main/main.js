@@ -144,7 +144,16 @@ app.whenReady().then(() => {
     if (!stat || !stat.isFile()) {
       return new Response('Not Found', { status: 404 });
     }
-    return net.fetch(pathToFileURL(resolved).toString(), { headers: request.headers });
+    try {
+      return await net.fetch(pathToFileURL(resolved).toString(), { headers: request.headers });
+    } catch {
+      // net.fetch throws (rather than resolving with an error status) for an
+      // unsatisfiable Range - e.g. the tail-end request a buffering <audio>
+      // element issues as it nears the end of the file. Left uncaught, the
+      // request never gets a response and playback hangs indefinitely
+      // instead of erroring or finishing.
+      return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${stat.size}` } });
+    }
   });
 
   createWindow();

@@ -37,6 +37,14 @@ export class Player extends EventTarget {
       this.isPlaying = false;
       this.emit('playstate');
     });
+    // A mid-playback network/decode failure (as opposed to a failed start,
+    // handled in playIndex) otherwise leaves the element stalled with no
+    // signal: isPlaying stays true and currentTime just stops advancing.
+    this.audioEl.addEventListener('error', () => {
+      const track = this.currentTrack;
+      this.stop();
+      this.emit('playerror', { track, message: `Playback error on ${track?.name ?? 'track'}` });
+    });
   }
 
   emit(name, detail) {
