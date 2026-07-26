@@ -1,8 +1,8 @@
-# LlamaAmp
+# Llama Amp
 
 A tiny retro MP3 player for the desktop, inspired by classic Winamp — original blue/silver chrome skin, a llama mascot, and a real Web Audio equalizer that actually shapes the sound (not just decorative sliders).
 
-<img src="docs/screenshot.png" alt="LlamaAmp screenshot" width="240" />
+<img src="docs/screenshot.png" alt="Llama Amp screenshot" width="240" />
 
 ## Features
 
@@ -10,6 +10,7 @@ A tiny retro MP3 player for the desktop, inspired by classic Winamp — original
 - 10-band graphic equalizer (60Hz–16kHz) with presets, a preamp, and an on/off toggle — implemented with real `BiquadFilterNode`s, not cosmetic
 - Editable playlist: add via file picker or drag-and-drop from Finder, reorder, remove, save/load as JSON
 - Retro spectrum-bars / oscilloscope visualizer (click it to cycle modes)
+- A llama in the LCD panel that nods its head along to the music
 - Local files only — no bundled tracks, no streaming, no telemetry
 
 ## Getting started
@@ -26,7 +27,7 @@ npm start
 ## Building a standalone app
 
 ```bash
-npm run package   # unpacked .app in out/LlamaAmp-darwin-<arch>/
+npm run package   # unpacked .app in out/Llama Amp-darwin-<arch>/
 npm run make       # distributable (zip on macOS)
 ```
 
@@ -36,7 +37,7 @@ npm run make       # distributable (zip on macOS)
 # from the project root, after `npm start` has produced a .vite/ build at least once
 PROJECT="$(pwd)"
 TEMPLATE="$PROJECT/node_modules/electron/dist/Electron.app"
-APP="$PROJECT/out/LlamaAmp-darwin-arm64/LlamaAmp.app"
+APP="$PROJECT/out/Llama Amp-darwin-arm64/Llama Amp.app"
 
 mkdir -p "$(dirname "$APP")"
 ditto "$TEMPLATE" "$APP"
@@ -47,10 +48,10 @@ ditto "$PROJECT/.vite/build" "$APPDIR/.vite/build"
 ditto "$PROJECT/.vite/renderer" "$APPDIR/.vite/renderer"
 cp "$PROJECT/package.json" "$APPDIR/package.json"
 
-mv "$APP/Contents/MacOS/Electron" "$APP/Contents/MacOS/LlamaAmp"
+mv "$APP/Contents/MacOS/Electron" "$APP/Contents/MacOS/Llama Amp"
 PLIST="$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleName LlamaAmp" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable LlamaAmp" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName Llama Amp" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Llama Amp" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.llamaamp.app" "$PLIST"
 
 codesign --force --deep --sign - "$APP"

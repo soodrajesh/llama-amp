@@ -1,8 +1,9 @@
-.llama-icon img {
+.llama-icon span {
+  display: inline-block;
   transform-origin: 50% 90%;
 }
 
-.llama-icon.bobbing img {
+.llama-icon.bobbing span {
   animation: llama-bob 0.6s ease-in-out infinite;
 }
 
@@ -16,5 +17,53 @@
   }
   75% {
     transform: translateY(-1px) rotate(4deg);
+  }
+}
+
+/* The llama is the system emoji glyph (correct shape at any size), tinted to the
+   LCD green. It is rendered as two clipped copies so the head+neck can rotate at
+   the shoulder while the body stays planted — the layers overlap by 1% at the
+   seam so no gap shows during the nod. */
+.llama-dancer {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  margin-top: 4px;
+}
+
+.llama-layer {
+  position: absolute;
+  inset: 0;
+  font-size: 34px;
+  line-height: 38px;
+  text-align: center;
+  filter: grayscale(1) sepia(1) hue-rotate(60deg) saturate(6) brightness(1.15)
+    drop-shadow(0 0 4px rgba(124, 245, 138, 0.55));
+}
+
+.llama-body {
+  clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%, 0 33%, 38% 33%);
+}
+
+.llama-head {
+  clip-path: inset(0 62% 66% 0);
+  transform-origin: 22% 34%;
+  animation: llama-nod 2.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.llama-dancer.playing .llama-head {
+  animation-duration: 0.9s;
+}
+
+/* Forward-only dip: a real nod goes down and back up, and rotating backwards
+   would pull the neck out from under the body clip. */
+@keyframes llama-nod {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(10deg);
   }
 }

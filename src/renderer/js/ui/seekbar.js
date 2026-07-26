@@ -40,7 +40,7 @@ export function initSeekbar(player) {
 
   function updateMarquee() {
     const track = player.currentTrack;
-    const text = track ? track.name : 'LlamaAmp — open a track to begin';
+    const text = track ? track.name : 'Llama Amp — open a track to begin';
     marqueeText.textContent = text;
     marquee.classList.remove('scrolling');
     requestAnimationFrame(() => {

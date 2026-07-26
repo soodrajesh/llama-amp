@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>LlamaAmp</title>
+    <title>Llama Amp</title>
     <link rel="stylesheet" href="/src/renderer/styles/theme.css" />
     <link rel="stylesheet" href="/src/renderer/styles/main-window.css" />
     <link rel="stylesheet" href="/src/renderer/styles/equalizer.css" />
@@ -13,10 +13,10 @@
     <div id="app" class="chassis">
       <!-- Title bar -->
       <header class="titlebar">
-        <button id="llama-btn" class="llama-icon" title="About LlamaAmp" aria-label="About LlamaAmp">
-          <img src="/src/renderer/assets/llama.svg" alt="Llama mascot" id="llama-img" />
+        <button id="llama-btn" class="llama-icon" title="About Llama Amp" aria-label="About Llama Amp">
+          <span id="llama-img" aria-hidden="true">&#129433;</span>
         </button>
-        <span class="titlebar-text">L L A M A A M P</span>
+        <span class="titlebar-text">L L A M A &nbsp; A M P</span>
         <div class="titlebar-buttons">
           <button id="toggle-eq" class="chrome-btn" title="Toggle Equalizer">EQ</button>
           <button id="toggle-pl" class="chrome-btn" title="Toggle Playlist">PL</button>
@@ -30,10 +30,16 @@
           <div class="display-left">
             <div class="time" id="time-display">00:00</div>
             <div class="time-mode" id="time-mode">ELAPSED</div>
+            <!-- Same glyph drawn twice and clipped, so the head/neck can pivot
+                 at the shoulder independently of the body. -->
+            <div id="llama-dancer" class="llama-dancer" role="img" aria-label="Llama">
+              <span class="llama-layer llama-body" aria-hidden="true">&#129433;</span>
+              <span class="llama-layer llama-head" aria-hidden="true">&#129433;</span>
+            </div>
           </div>
           <div class="display-right">
             <div class="marquee" id="marquee">
-              <span id="marquee-text">LlamaAmp — open a track to begin</span>
+              <span id="marquee-text">Llama Amp — open a track to begin</span>
             </div>
             <canvas id="visualizer" class="visualizer" width="220" height="34" title="Click to change visualization"></canvas>
           </div>
@@ -89,8 +95,8 @@
       <!-- About overlay -->
       <div id="about-overlay" class="about-overlay" hidden>
         <div class="about-box">
-          <img src="/src/renderer/assets/llama.svg" alt="Llama mascot" class="about-llama" />
-          <h2>LlamaAmp</h2>
+          <div class="about-llama" role="img" aria-label="Llama mascot">&#129433;</div>
+          <h2>Llama Amp</h2>
           <p>A tiny retro MP3 player with a real graphic equalizer.</p>
           <p class="about-sub">Made with llamas. It really whips the llama's ass.</p>
           <button id="about-close-btn" class="chrome-btn">CLOSE</button>

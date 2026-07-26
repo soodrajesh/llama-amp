@@ -7,6 +7,7 @@ import { initPlaylist } from './ui/playlist.js';
 import { initDragDrop } from './ui/dragDrop.js';
 import { initLlama } from './ui/llama.js';
 import { initVisualizer } from './ui/visualizer.js';
+import { initLlamaDancer } from './ui/llamaDancer.js';
 
 const player = new Player();
 
@@ -18,6 +19,7 @@ initPlaylist(player);
 initDragDrop(player);
 initLlama(player);
 initVisualizer(player);
+initLlamaDancer(player);
 
 const eqPanel = document.getElementById('eq-panel');
 const plPanel = document.getElementById('pl-panel');
