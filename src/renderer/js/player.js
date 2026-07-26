@@ -14,6 +14,11 @@ export class Player extends EventTarget {
     super();
     this.audioEl = new Audio();
     this.audioEl.preload = 'auto';
+    // Tracks load from the llama-media: custom protocol, which is cross-origin
+    // relative to the page. Without this, createMediaElementSource() below
+    // still reports normal playback (currentTime advances) but silently
+    // zeroes every sample reaching the Web Audio graph - no error, no sound.
+    this.audioEl.crossOrigin = 'anonymous';
     this.engine = new AudioEngine(this.audioEl);
 
     this.tracks = []; // { path, name }

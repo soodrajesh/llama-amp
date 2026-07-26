@@ -144,16 +144,28 @@ app.whenReady().then(() => {
     if (!stat || !stat.isFile()) {
       return new Response('Not Found', { status: 404 });
     }
+    let res;
     try {
-      return await net.fetch(pathToFileURL(resolved).toString(), { headers: request.headers });
+      res = await net.fetch(pathToFileURL(resolved).toString(), { headers: request.headers });
     } catch {
       // net.fetch throws (rather than resolving with an error status) for an
       // unsatisfiable Range - e.g. the tail-end request a buffering <audio>
       // element issues as it nears the end of the file. Left uncaught, the
       // request never gets a response and playback hangs indefinitely
       // instead of erroring or finishing.
-      return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${stat.size}` } });
+      return new Response(null, {
+        status: 416,
+        headers: { 'Content-Range': `bytes */${stat.size}`, 'Access-Control-Allow-Origin': '*' },
+      });
     }
+    // The renderer's <audio> element sets crossOrigin="anonymous" so it can be
+    // routed through Web Audio (createMediaElementSource); without a CORS
+    // header here the browser treats the source as tainted and silently
+    // zeroes every sample reaching the graph - playback looks normal
+    // (currentTime advances) but nothing is audible.
+    const headers = new Headers(res.headers);
+    headers.set('Access-Control-Allow-Origin', '*');
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
   });
 
   createWindow();
