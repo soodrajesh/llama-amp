@@ -2,6 +2,8 @@
 
 A tiny retro MP3 player for the desktop, inspired by classic Winamp — original blue/silver chrome skin, a llama mascot, and a real Web Audio equalizer that actually shapes the sound (not just decorative sliders).
 
+![LlamaAmp screenshot](docs/screenshot.png)
+
 ## Features
 
 - Play/pause/stop/prev/next, seek bar with elapsed/remaining time, volume + balance
