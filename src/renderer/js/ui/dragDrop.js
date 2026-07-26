@@ -24,7 +24,7 @@ export function initDragDrop(player) {
       const startIndex = player.tracks.length;
       await player.addPaths(paths);
       if (player.currentIndex === -1) {
-        await player.playIndex(startIndex);
+        await player.start(startIndex);
       }
     });
   });

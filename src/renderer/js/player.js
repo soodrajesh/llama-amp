@@ -20,6 +20,12 @@ export class Player extends EventTarget {
     this.currentIndex = -1;
     this.isPlaying = false;
 
+    // Shuffle plays a pre-computed permutation rather than picking at random each
+    // time, so every track is heard once before any repeats.
+    this.shuffle = false;
+    this.shuffleOrder = [];
+    this.shufflePos = -1;
+
     this.audioEl.addEventListener('timeupdate', () => this.emit('timeupdate'));
     this.audioEl.addEventListener('loadedmetadata', () => this.emit('metadata'));
     this.audioEl.addEventListener('ended', () => this.handleTrackEnd());
@@ -41,10 +47,44 @@ export class Player extends EventTarget {
     return this.tracks[this.currentIndex] ?? null;
   }
 
+  setShuffle(enabled) {
+    this.shuffle = enabled;
+    if (enabled) this.rebuildShuffleOrder();
+    this.emit('shuffle');
+  }
+
+  /**
+   * Fisher-Yates over the track indices. The currently playing track is moved to
+   * the front so the permutation continues from where the listener already is
+   * instead of possibly replaying it immediately.
+   */
+  rebuildShuffleOrder() {
+    const indices = this.tracks.map((_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    if (this.currentIndex !== -1) {
+      const pos = indices.indexOf(this.currentIndex);
+      if (pos > 0) {
+        indices.splice(pos, 1);
+        indices.unshift(this.currentIndex);
+      }
+    }
+    this.shuffleOrder = indices;
+    this.shufflePos = this.currentIndex === -1 ? -1 : 0;
+  }
+
+  /** Track indices move on any playlist mutation, so the permutation is rebuilt. */
+  syncShuffle() {
+    if (this.shuffle) this.rebuildShuffleOrder();
+  }
+
   async addPaths(paths) {
     const valid = await window.api.validatePaths(paths);
     const added = valid.map((path) => ({ path, name: basename(path) }));
     this.tracks.push(...added);
+    this.syncShuffle();
     this.emit('playlist');
     return added.length;
   }
@@ -58,6 +98,7 @@ export class Player extends EventTarget {
       this.stop();
       this.currentIndex = -1;
     }
+    this.syncShuffle();
     this.emit('playlist');
   }
 
@@ -72,6 +113,7 @@ export class Player extends EventTarget {
     } else if (fromIndex > this.currentIndex && toIndex <= this.currentIndex) {
       this.currentIndex += 1;
     }
+    this.syncShuffle();
     this.emit('playlist');
   }
 
@@ -79,6 +121,7 @@ export class Player extends EventTarget {
     this.stop();
     this.tracks = [];
     this.currentIndex = -1;
+    this.syncShuffle();
     this.emit('playlist');
   }
 
@@ -90,6 +133,11 @@ export class Player extends EventTarget {
     if (index < 0 || index >= this.tracks.length) return;
     const track = this.tracks[index];
     this.currentIndex = index;
+    // Keep the shuffle cursor aligned when a track is chosen directly.
+    if (this.shuffle) {
+      const pos = this.shuffleOrder.indexOf(index);
+      if (pos !== -1) this.shufflePos = pos;
+    }
     this.emit('trackchange');
     try {
       await this.engine.resume();
@@ -103,6 +151,15 @@ export class Player extends EventTarget {
 
   /** Auto-advance stops at the end of the playlist; manual next/prev still wrap. */
   handleTrackEnd() {
+    if (this.shuffle) {
+      if (this.shufflePos + 1 >= this.shuffleOrder.length) {
+        this.stop();
+        return;
+      }
+      this.shufflePos += 1;
+      this.playIndex(this.shuffleOrder[this.shufflePos]);
+      return;
+    }
     if (this.currentIndex >= this.tracks.length - 1) {
       this.stop();
       return;
@@ -110,9 +167,24 @@ export class Player extends EventTarget {
     this.playIndex(this.currentIndex + 1);
   }
 
+  /**
+   * Begin playback from a stopped state. Honours shuffle, so pressing play with
+   * shuffle on starts somewhere random instead of always at the first track.
+   */
+  async start(preferredIndex = 0) {
+    if (this.tracks.length === 0) return;
+    if (this.shuffle) {
+      if (this.shuffleOrder.length !== this.tracks.length) this.rebuildShuffleOrder();
+      this.shufflePos = 0;
+      await this.playIndex(this.shuffleOrder[0]);
+      return;
+    }
+    await this.playIndex(preferredIndex);
+  }
+
   async togglePlayPause() {
     if (this.currentIndex === -1) {
-      if (this.tracks.length > 0) await this.playIndex(0);
+      await this.start();
       return;
     }
     if (this.audioEl.paused) {
@@ -142,12 +214,29 @@ export class Player extends EventTarget {
 
   next() {
     if (this.tracks.length === 0) return;
+    if (this.shuffle) {
+      // Reaching the end of the permutation reshuffles for another pass.
+      if (this.shufflePos + 1 >= this.shuffleOrder.length) {
+        this.rebuildShuffleOrder();
+        this.shufflePos = -1;
+      }
+      this.shufflePos += 1;
+      this.playIndex(this.shuffleOrder[this.shufflePos]);
+      return;
+    }
     const nextIndex = (this.currentIndex + 1) % this.tracks.length;
     this.playIndex(nextIndex);
   }
 
   prev() {
     if (this.tracks.length === 0) return;
+    if (this.shuffle) {
+      // Step back through what was already played rather than picking randomly.
+      if (this.shufflePos <= 0) return;
+      this.shufflePos -= 1;
+      this.playIndex(this.shuffleOrder[this.shufflePos]);
+      return;
+    }
     const prevIndex = (this.currentIndex - 1 + this.tracks.length) % this.tracks.length;
     this.playIndex(prevIndex);
   }
@@ -175,6 +264,7 @@ export class Player extends EventTarget {
     this.stop();
     this.tracks = tracks;
     this.currentIndex = -1;
+    this.syncShuffle();
     this.emit('playlist');
     return true;
   }

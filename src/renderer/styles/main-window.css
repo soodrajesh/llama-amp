@@ -144,6 +144,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  /* Wrap instead of clipping the balance slider at the minimum window width. */
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 
 .transport {
@@ -155,6 +158,13 @@
   width: 26px;
   height: 20px;
   font-size: 10px;
+}
+
+.shuffle-btn {
+  width: auto;
+  padding: 3px 5px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
 }
 
 .volume-balance {

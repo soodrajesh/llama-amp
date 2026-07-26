@@ -2,6 +2,22 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <!-- blob: is required for media because tracks are handed to <audio> as object
+         URLs; ws:/http: on localhost are only reachable in dev (Vite HMR). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self';
+               style-src 'self' 'unsafe-inline';
+               media-src 'self' blob:;
+               img-src 'self' data:;
+               font-src 'self';
+               connect-src 'self' ws://localhost:* http://localhost:*;
+               object-src 'none';
+               frame-src 'none';
+               base-uri 'none';
+               form-action 'none'"
+    />
     <title>Llama Amp</title>
     <link rel="stylesheet" href="/src/renderer/styles/theme.css" />
     <link rel="stylesheet" href="/src/renderer/styles/main-window.css" />
@@ -57,6 +73,14 @@
             <button id="stop-btn" class="chrome-btn transport-btn" title="Stop">⏹</button>
             <button id="next-btn" class="chrome-btn transport-btn" title="Next">⏭</button>
             <button id="open-btn" class="chrome-btn transport-btn" title="Open File(s)">⏏</button>
+            <button
+              id="shuffle-btn"
+              class="chrome-btn transport-btn shuffle-btn"
+              title="Shuffle"
+              aria-pressed="false"
+            >
+              SHUF
+            </button>
           </div>
           <div class="volume-balance">
             <label class="mini-label">VOL</label>
