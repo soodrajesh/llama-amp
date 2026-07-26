@@ -15,6 +15,35 @@ function isAllowedAudioPath(filePath) {
   return AUDIO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
+/**
+ * net.fetch(file://...) correctly slices the body for a Range request but
+ * never reports it - it comes back as a bare 200 with no Content-Length or
+ * Content-Range, so <audio> has no way to tell the resource is seekable at
+ * all and treats everything past what it has already buffered as
+ * unseekable. Range has to be parsed and the response metadata constructed
+ * by hand instead of trusting the passthrough.
+ */
+function parseRange(rangeHeader, size) {
+  if (!rangeHeader) return null;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+  if (!match) return 'unsatisfiable';
+  const [, startStr, endStr] = match;
+  let start;
+  let end;
+  if (startStr === '') {
+    if (endStr === '') return 'unsatisfiable';
+    start = Math.max(0, size - Number(endStr));
+    end = size - 1;
+  } else {
+    start = Number(startStr);
+    end = endStr === '' ? size - 1 : Math.min(Number(endStr), size - 1);
+  }
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start > end || start < 0 || start >= size) {
+    return 'unsatisfiable';
+  }
+  return { start, end };
+}
+
 /** Renderer-side URL for a local track, handled by the MEDIA_SCHEME protocol below. */
 function toMediaUrl(filePath) {
   return `${MEDIA_SCHEME}://play/${encodeURIComponent(filePath)}`;
@@ -144,20 +173,24 @@ app.whenReady().then(() => {
     if (!stat || !stat.isFile()) {
       return new Response('Not Found', { status: 404 });
     }
+    const unsatisfiable = () =>
+      new Response(null, {
+        status: 416,
+        headers: { 'Content-Range': `bytes */${stat.size}`, 'Access-Control-Allow-Origin': '*' },
+      });
+
+    const range = parseRange(request.headers.get('range'), stat.size);
+    if (range === 'unsatisfiable') return unsatisfiable();
+
     let res;
     try {
       res = await net.fetch(pathToFileURL(resolved).toString(), { headers: request.headers });
     } catch {
-      // net.fetch throws (rather than resolving with an error status) for an
-      // unsatisfiable Range - e.g. the tail-end request a buffering <audio>
-      // element issues as it nears the end of the file. Left uncaught, the
-      // request never gets a response and playback hangs indefinitely
-      // instead of erroring or finishing.
-      return new Response(null, {
-        status: 416,
-        headers: { 'Content-Range': `bytes */${stat.size}`, 'Access-Control-Allow-Origin': '*' },
-      });
+      // Defensive fallback: parseRange already rejects anything unsatisfiable
+      // above, so a throw here means net.fetch failed for some other reason.
+      return unsatisfiable();
     }
+
     // The renderer's <audio> element sets crossOrigin="anonymous" so it can be
     // routed through Web Audio (createMediaElementSource); without a CORS
     // header here the browser treats the source as tainted and silently
@@ -165,7 +198,15 @@ app.whenReady().then(() => {
     // (currentTime advances) but nothing is audible.
     const headers = new Headers(res.headers);
     headers.set('Access-Control-Allow-Origin', '*');
-    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+    headers.set('Accept-Ranges', 'bytes');
+
+    if (range) {
+      headers.set('Content-Length', String(range.end - range.start + 1));
+      headers.set('Content-Range', `bytes ${range.start}-${range.end}/${stat.size}`);
+      return new Response(res.body, { status: 206, statusText: 'Partial Content', headers });
+    }
+    headers.set('Content-Length', String(stat.size));
+    return new Response(res.body, { status: 200, statusText: 'OK', headers });
   });
 
   createWindow();
