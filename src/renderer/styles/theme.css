@@ -1,0 +1,123 @@
+:root {
+  --chrome-1: #cfd6e0;
+  --chrome-2: #8b95a8;
+  --chrome-3: #4a5468;
+  --chrome-dark: #2b3040;
+  --chassis-bg: #23262f;
+  --panel-bg: linear-gradient(180deg, #b8c0d0 0%, #8b95a8 6%, #6b7488 50%, #59627a 94%, #454d60 100%);
+  --bevel-light: rgba(255, 255, 255, 0.55);
+  --bevel-dark: rgba(0, 0, 0, 0.55);
+  --lcd-bg: #0d1a10;
+  --lcd-fg: #7cf58a;
+  --lcd-fg-dim: #2f6b3a;
+  --accent: #3fd0ff;
+  --danger: #ff6b6b;
+  --font-ui: 'Tahoma', 'Segoe UI', Verdana, Arial, sans-serif;
+  --font-lcd: 'Courier New', ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Author `display` rules on panels/overlays otherwise beat the UA [hidden]
+   default (author origin always wins over UA origin) — force it back. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: transparent;
+  font-family: var(--font-ui);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.chassis {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--chassis-bg);
+  border: 1px solid #111319;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.panel {
+  background: var(--panel-bg);
+  border-top: 1px solid var(--bevel-light);
+  border-bottom: 1px solid var(--bevel-dark);
+  padding: 8px;
+}
+
+.chrome-btn {
+  background: linear-gradient(180deg, #eef2f8 0%, #b7c0d1 45%, #8b95a8 50%, #6b7488 100%);
+  border: 1px solid var(--chrome-3);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 var(--bevel-light), 0 1px 1px rgba(0, 0, 0, 0.4);
+  color: #1c2030;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 6px;
+  line-height: 1;
+}
+
+.chrome-btn:hover {
+  filter: brightness(1.06);
+}
+
+.chrome-btn:active {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  transform: translateY(1px);
+}
+
+.chrome-btn.active {
+  background: linear-gradient(180deg, var(--accent) 0%, #1a8fb5 100%);
+  color: #06222b;
+}
+
+.mini-label {
+  font-size: 9px;
+  color: #0f1220;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-right: 2px;
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: linear-gradient(180deg, var(--chrome-3), var(--chrome-1));
+  border-radius: 2px;
+  border: 1px solid var(--chrome-dark);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 14px;
+  margin-top: -6px;
+  background: linear-gradient(180deg, #f4f7fb, #9aa4b8);
+  border: 1px solid var(--chrome-3);
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}

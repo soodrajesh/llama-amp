@@ -1,0 +1,81 @@
+.pl-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 160px;
+}
+
+.pl-toolbar {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.pl-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  border-radius: 2px;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+  flex: 1;
+  min-height: 100px;
+  overflow-y: auto;
+}
+
+.pl-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  font-family: var(--font-lcd);
+  font-size: 11px;
+  color: var(--lcd-fg);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.pl-item:hover {
+  background: rgba(124, 245, 138, 0.08);
+}
+
+.pl-item.selected {
+  background: rgba(63, 208, 255, 0.18);
+}
+
+.pl-item.playing {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.pl-item.dragging {
+  opacity: 0.4;
+}
+
+.pl-item .pl-index {
+  color: var(--lcd-fg-dim);
+  min-width: 18px;
+}
+
+.pl-item .pl-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-dropzone {
+  text-align: center;
+  font-size: 9px;
+  color: var(--lcd-fg-dim);
+  border: 1px dashed var(--chrome-dark);
+  border-radius: 2px;
+  padding: 4px;
+}
+
+.pl-dropzone.drag-over {
+  border-color: var(--accent);
+  color: var(--accent);
+}

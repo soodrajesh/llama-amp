@@ -1,0 +1,20 @@
+.llama-icon img {
+  transform-origin: 50% 90%;
+}
+
+.llama-icon.bobbing img {
+  animation: llama-bob 0.6s ease-in-out infinite;
+}
+
+@keyframes llama-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-1px) rotate(-4deg);
+  }
+  75% {
+    transform: translateY(-1px) rotate(4deg);
+  }
+}

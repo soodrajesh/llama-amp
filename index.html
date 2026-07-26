@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>LlamaAmp</title>
+    <link rel="stylesheet" href="/src/renderer/styles/theme.css" />
+    <link rel="stylesheet" href="/src/renderer/styles/main-window.css" />
+    <link rel="stylesheet" href="/src/renderer/styles/equalizer.css" />
+    <link rel="stylesheet" href="/src/renderer/styles/playlist.css" />
+    <link rel="stylesheet" href="/src/renderer/styles/llama.css" />
+  </head>
+  <body>
+    <div id="app" class="chassis">
+      <!-- Title bar -->
+      <header class="titlebar">
+        <button id="llama-btn" class="llama-icon" title="About LlamaAmp" aria-label="About LlamaAmp">
+          <img src="/src/renderer/assets/llama.svg" alt="Llama mascot" id="llama-img" />
+        </button>
+        <span class="titlebar-text">L L A M A A M P</span>
+        <div class="titlebar-buttons">
+          <button id="toggle-eq" class="chrome-btn" title="Toggle Equalizer">EQ</button>
+          <button id="toggle-pl" class="chrome-btn" title="Toggle Playlist">PL</button>
+          <button id="close-btn" class="chrome-btn chrome-btn-close" title="Close">×</button>
+        </div>
+      </header>
+
+      <!-- Main player panel -->
+      <section class="panel main-panel">
+        <div class="display">
+          <div class="display-left">
+            <div class="time" id="time-display">00:00</div>
+            <div class="time-mode" id="time-mode">ELAPSED</div>
+          </div>
+          <div class="display-right">
+            <div class="marquee" id="marquee">
+              <span id="marquee-text">LlamaAmp — open a track to begin</span>
+            </div>
+            <canvas id="visualizer" class="visualizer" width="220" height="34" title="Click to change visualization"></canvas>
+          </div>
+        </div>
+
+        <div class="seek-row">
+          <input type="range" id="seek-bar" min="0" max="1000" value="0" step="1" />
+        </div>
+
+        <div class="controls-row">
+          <div class="transport">
+            <button id="prev-btn" class="chrome-btn transport-btn" title="Previous">⏮</button>
+            <button id="play-btn" class="chrome-btn transport-btn" title="Play">▶</button>
+            <button id="pause-btn" class="chrome-btn transport-btn" title="Pause">⏸</button>
+            <button id="stop-btn" class="chrome-btn transport-btn" title="Stop">⏹</button>
+            <button id="next-btn" class="chrome-btn transport-btn" title="Next">⏭</button>
+            <button id="open-btn" class="chrome-btn transport-btn" title="Open File(s)">⏏</button>
+          </div>
+          <div class="volume-balance">
+            <label class="mini-label">VOL</label>
+            <input type="range" id="volume-slider" min="0" max="100" value="80" />
+            <label class="mini-label">BAL</label>
+            <input type="range" id="balance-slider" min="-100" max="100" value="0" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Equalizer panel -->
+      <section class="panel eq-panel" id="eq-panel" hidden>
+        <div class="eq-header">
+          <button id="eq-on-btn" class="chrome-btn eq-toggle" title="Toggle Equalizer On/Off">ON</button>
+          <select id="eq-preset" class="eq-preset-select"></select>
+          <button id="eq-save-preset" class="chrome-btn" title="Save current sliders as a custom preset">SAVE</button>
+        </div>
+        <div class="eq-sliders" id="eq-sliders">
+          <!-- preamp + 10 band sliders injected by JS -->
+        </div>
+      </section>
+
+      <!-- Playlist panel -->
+      <section class="panel pl-panel" id="pl-panel" hidden>
+        <div class="pl-toolbar">
+          <button id="pl-add-btn" class="chrome-btn" title="Add files">ADD</button>
+          <button id="pl-remove-btn" class="chrome-btn" title="Remove selected">REM</button>
+          <button id="pl-save-btn" class="chrome-btn" title="Save playlist">SAVE</button>
+          <button id="pl-load-btn" class="chrome-btn" title="Load playlist">LOAD</button>
+          <button id="pl-clear-btn" class="chrome-btn" title="Clear playlist">CLR</button>
+        </div>
+        <ul id="pl-list" class="pl-list" aria-label="Playlist"></ul>
+        <div class="pl-dropzone" id="pl-dropzone">Drop MP3 files here</div>
+      </section>
+
+      <!-- About overlay -->
+      <div id="about-overlay" class="about-overlay" hidden>
+        <div class="about-box">
+          <img src="/src/renderer/assets/llama.svg" alt="Llama mascot" class="about-llama" />
+          <h2>LlamaAmp</h2>
+          <p>A tiny retro MP3 player with a real graphic equalizer.</p>
+          <p class="about-sub">Made with llamas. It really whips the llama's ass.</p>
+          <button id="about-close-btn" class="chrome-btn">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/renderer/js/app.js"></script>
+  </body>
+</html>
