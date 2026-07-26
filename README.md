@@ -40,6 +40,7 @@ PROJECT="$(pwd)"
 TEMPLATE="$PROJECT/node_modules/electron/dist/Electron.app"
 APP="$PROJECT/out/Llama Amp-darwin-arm64/Llama Amp.app"
 
+rm -rf "$APP"
 mkdir -p "$(dirname "$APP")"
 ditto "$TEMPLATE" "$APP"
 
@@ -59,10 +60,13 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon.icns" "$PLIST"
 
 codesign --force --deep --sign - "$APP"
+rm -rf "/Applications/Llama Amp.app"
 cp -R "$APP" /Applications/
 ```
 
 This is the same manual packaging method [documented by Electron itself](https://www.electronjs.org/docs/latest/tutorial/application-distribution) — it just skips whatever `electron-packager` is getting stuck on.
+
+**Always `rm -rf` the target `.app` before both the `ditto`/ `cp -R` steps above.** `ditto` and `cp -R` merge into an existing bundle rather than replacing it, so re-running this script over a stale `out/.../*.app` or a stale `/Applications/Llama Amp.app` can leave old Vite-hashed asset files (e.g. a stale `index-*.css`) sitting alongside the new ones — the app then loads whichever one Electron happens to reference first, silently serving old code even though packaging "succeeded."
 
 Since the app is ad-hoc signed (not notarized), the first launch from Finder needs **right-click → Open** to get past Gatekeeper. After that it opens normally.
 

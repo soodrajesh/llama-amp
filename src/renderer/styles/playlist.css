@@ -68,11 +68,13 @@
 
 .pl-dropzone {
   text-align: center;
-  font-size: 9px;
-  color: var(--lcd-fg-dim);
-  border: 1px dashed var(--chrome-dark);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lcd-fg);
+  background: var(--lcd-bg);
+  border: 1px dashed var(--lcd-fg-dim);
   border-radius: 2px;
-  padding: 4px;
+  padding: 5px;
 }
 
 .pl-dropzone.drag-over {
