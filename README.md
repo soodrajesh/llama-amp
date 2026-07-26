@@ -11,7 +11,8 @@ A tiny retro MP3 player for the desktop, inspired by classic Winamp — original
 - Editable playlist: add via file picker or drag-and-drop from Finder, reorder, remove, save/load as JSON
 - Retro spectrum-bars / oscilloscope visualizer (click it to cycle modes)
 - A llama in the LCD panel that nods its head along to the music
-- Local files only — no bundled tracks, no streaming, no telemetry
+- Shuffle: plays every track once before repeating (Fisher-Yates), not random-each-time
+- Local files only — no bundled tracks, no network streaming, no telemetry
 
 ## Getting started
 
@@ -47,12 +48,15 @@ mkdir -p "$APPDIR/.vite"
 ditto "$PROJECT/.vite/build" "$APPDIR/.vite/build"
 ditto "$PROJECT/.vite/renderer" "$APPDIR/.vite/renderer"
 cp "$PROJECT/package.json" "$APPDIR/package.json"
+cp "$PROJECT/assets/icon.icns" "$APP/Contents/Resources/icon.icns"
 
 mv "$APP/Contents/MacOS/Electron" "$APP/Contents/MacOS/Llama Amp"
 PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName Llama Amp" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Llama Amp" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Llama Amp" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.llamaamp.app" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon.icns" "$PLIST"
 
 codesign --force --deep --sign - "$APP"
 cp -R "$APP" /Applications/
@@ -73,6 +77,8 @@ A normal Terminal or double-clicking the app from Finder is unaffected.
 ## Tech stack
 
 Electron + Vite (via Electron Forge), plain HTML/CSS/JS — no frontend framework. Audio graph: `<audio>` → `MediaElementAudioSourceNode` → preamp `GainNode` → 10× `BiquadFilterNode` → `StereoPannerNode` → master `GainNode` → `AnalyserNode` → destination.
+
+Tracks are streamed straight from disk via a custom `llama-media://` protocol (registered in `src/main/main.js`, backed by Electron's `net.fetch` on the `file://` URL with hand-rolled `Range`/`Content-Range` handling) rather than read whole into memory and copied across IPC. The renderer runs under a strict `Content-Security-Policy` and a sandboxed, context-isolated preload with a narrow `window.api` surface — no raw `ipcRenderer` exposure.
 
 ## License
 
