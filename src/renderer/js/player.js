@@ -22,7 +22,7 @@ export class Player extends EventTarget {
 
     this.audioEl.addEventListener('timeupdate', () => this.emit('timeupdate'));
     this.audioEl.addEventListener('loadedmetadata', () => this.emit('metadata'));
-    this.audioEl.addEventListener('ended', () => this.next());
+    this.audioEl.addEventListener('ended', () => this.handleTrackEnd());
     this.audioEl.addEventListener('play', () => {
       this.isPlaying = true;
       this.emit('playstate');
@@ -82,17 +82,32 @@ export class Player extends EventTarget {
     this.emit('playlist');
   }
 
+  /**
+   * Never rejects: a missing/undecodable file surfaces as a 'playerror' event so
+   * callers (including the `ended` auto-advance) can stay fire-and-forget.
+   */
   async playIndex(index) {
     if (index < 0 || index >= this.tracks.length) return;
-    await this.engine.resume();
+    const track = this.tracks[index];
     this.currentIndex = index;
-    await this.engine.loadTrack(this.tracks[index].path);
     this.emit('trackchange');
     try {
+      await this.engine.resume();
+      await this.engine.loadTrack(track.path);
       await this.audioEl.play();
     } catch {
-      // Autoplay/decoding failure - state stays paused, UI reflects via playstate event.
+      // Most likely the file moved or was deleted since it was added.
+      this.emit('playerror', { track, message: `Can't play ${track.name}` });
     }
+  }
+
+  /** Auto-advance stops at the end of the playlist; manual next/prev still wrap. */
+  handleTrackEnd() {
+    if (this.currentIndex >= this.tracks.length - 1) {
+      this.stop();
+      return;
+    }
+    this.playIndex(this.currentIndex + 1);
   }
 
   async togglePlayPause() {
@@ -101,8 +116,15 @@ export class Player extends EventTarget {
       return;
     }
     if (this.audioEl.paused) {
-      await this.engine.resume();
-      await this.audioEl.play();
+      try {
+        await this.engine.resume();
+        await this.audioEl.play();
+      } catch {
+        this.emit('playerror', {
+          track: this.currentTrack,
+          message: `Can't play ${this.currentTrack?.name ?? 'track'}`,
+        });
+      }
     } else {
       this.audioEl.pause();
     }

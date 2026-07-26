@@ -100,12 +100,24 @@ ipcMain.handle('playlist:load', async () => {
   });
   if (result.canceled || !result.filePaths[0]) return null;
   const raw = await fs.readFile(result.filePaths[0], 'utf-8');
-  const parsed = JSON.parse(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
   if (!Array.isArray(parsed)) return [];
+  // Playlist files are user-editable, so entries get the same extension check as
+  // freshly added paths, and the shape is normalised rather than trusted.
   const existing = await Promise.all(
-    parsed.map(async (track) => {
-      const stat = await fs.stat(track.path).catch(() => null);
-      return stat && stat.isFile() ? track : null;
+    parsed.map(async (entry) => {
+      if (!entry || typeof entry.path !== 'string' || !isAllowedAudioPath(entry.path)) return null;
+      const stat = await fs.stat(entry.path).catch(() => null);
+      if (!stat || !stat.isFile()) return null;
+      return {
+        path: entry.path,
+        name: typeof entry.name === 'string' && entry.name ? entry.name : path.basename(entry.path),
+      };
     })
   );
   return existing.filter(Boolean);

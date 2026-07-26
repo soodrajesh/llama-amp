@@ -38,9 +38,7 @@ export function initSeekbar(player) {
     timeDisplay.textContent = (showRemaining ? '-' : '') + formatTime(shown);
   }
 
-  function updateMarquee() {
-    const track = player.currentTrack;
-    const text = track ? track.name : 'Llama Amp — open a track to begin';
+  function setMarqueeText(text) {
     marqueeText.textContent = text;
     marquee.classList.remove('scrolling');
     requestAnimationFrame(() => {
@@ -54,12 +52,27 @@ export function initSeekbar(player) {
     });
   }
 
+  function updateMarquee() {
+    const track = player.currentTrack;
+    setMarqueeText(track ? track.name : 'Llama Amp — open a track to begin');
+  }
+
+  // Errors take over the marquee briefly, then it reverts to the track title.
+  let errorTimer = null;
+  function showError(message) {
+    clearTimeout(errorTimer);
+    setMarqueeText(message);
+    errorTimer = setTimeout(updateMarquee, 4000);
+  }
+
   player.addEventListener('timeupdate', updateTime);
   player.addEventListener('trackchange', () => {
     seekBar.value = '0';
+    clearTimeout(errorTimer);
     updateMarquee();
   });
   player.addEventListener('playlist', updateMarquee);
+  player.addEventListener('playerror', (e) => showError(e.detail.message));
 
   updateTime();
   updateMarquee();
