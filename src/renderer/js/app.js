@@ -25,6 +25,7 @@ const eqPanel = document.getElementById('eq-panel');
 const plPanel = document.getElementById('pl-panel');
 const toggleEqBtn = document.getElementById('toggle-eq');
 const togglePlBtn = document.getElementById('toggle-pl');
+const minimizeBtn = document.getElementById('minimize-btn');
 const closeBtn = document.getElementById('close-btn');
 
 toggleEqBtn.addEventListener('click', () => {
@@ -37,6 +38,7 @@ togglePlBtn.addEventListener('click', () => {
   togglePlBtn.classList.toggle('active', !plPanel.hidden);
 });
 
+minimizeBtn.addEventListener('click', () => window.api.minimizeWindow());
 closeBtn.addEventListener('click', () => window.close());
 
 // Start with the playlist visible since there's no audio loaded yet.

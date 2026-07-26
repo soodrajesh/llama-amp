@@ -84,6 +84,10 @@ const createWindow = () => {
   return mainWindow;
 };
 
+ipcMain.on('window:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+
 ipcMain.handle('dialog:openAudioFiles', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open Audio Files',
