@@ -11,6 +11,9 @@ import { initLlamaDancer } from './ui/llamaDancer.js';
 
 const player = new Player();
 
+// Launched (or relaunched) with a file via the OS "Open With" / double-click path.
+window.api.onOpenFiles((filePaths) => player.openPaths(filePaths));
+
 initTransport(player);
 initSeekbar(player);
 initVolumeBalance(player);

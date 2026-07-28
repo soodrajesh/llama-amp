@@ -1,4 +1,4 @@
-const AUDIO_EXT_RE = /\.(mp3|m4a|wav|ogg|flac)$/i;
+const AUDIO_EXT_RE = /\.(mp3|m4a|wav|ogg|oga|flac|opus|weba)$/i;
 
 export function initDragDrop(player) {
   const dropzone = document.getElementById('pl-dropzone');
@@ -21,11 +21,7 @@ export function initDragDrop(player) {
       const files = [...(e.dataTransfer?.files ?? [])].filter((f) => AUDIO_EXT_RE.test(f.name));
       if (files.length === 0) return;
       const paths = files.map((file) => window.api.getPathForFile(file));
-      const startIndex = player.tracks.length;
-      await player.addPaths(paths);
-      if (player.currentIndex === -1) {
-        await player.start(startIndex);
-      }
+      await player.openPaths(paths);
     });
   });
 }

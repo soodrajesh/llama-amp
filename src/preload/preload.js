@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('api', {
   getPathForFile: (file) => webUtils.getPathForFile(file),
   savePlaylist: (tracks) => ipcRenderer.invoke('playlist:save', tracks),
   loadPlaylist: () => ipcRenderer.invoke('playlist:load'),
+  onOpenFiles: (callback) => ipcRenderer.on('open-files', (_event, filePaths) => callback(filePaths)),
 });

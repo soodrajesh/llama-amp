@@ -8,11 +8,55 @@ if (started) {
   app.quit();
 }
 
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.flac']);
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.oga', '.flac', '.opus', '.weba']);
 const MEDIA_SCHEME = 'llama-media';
 
 function isAllowedAudioPath(filePath) {
   return AUDIO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
+
+/** Command-line args (Windows/Linux launch-with-file, or a relaunch forwarded via second-instance). */
+function audioPathsFromArgv(argv) {
+  return argv.filter(isAllowedAudioPath).map((p) => path.resolve(p));
+}
+
+// Files the OS wants opened before the renderer has a listener attached (cold
+// launch-with-file) are queued here and flushed once the window signals ready.
+let mainWindow = null;
+let rendererReady = false;
+let pendingOpenPaths = [];
+
+function sendOpenPaths(paths) {
+  if (paths.length === 0) return;
+  if (rendererReady && mainWindow) {
+    mainWindow.webContents.send('open-files', paths);
+  } else {
+    pendingOpenPaths.push(...paths);
+  }
+}
+
+// macOS delivers launch-with-file as an Apple Event, not argv, and can fire
+// before 'ready' on cold launch - so this has to be registered at module load,
+// not inside whenReady().
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  if (isAllowedAudioPath(filePath)) {
+    sendOpenPaths([path.resolve(filePath)]);
+  }
+});
+
+// Windows/Linux have no open-file event; a second launch-with-file just starts
+// a new process, so the running instance has to be handed the path via this.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    sendOpenPaths(audioPathsFromArgv(argv));
+  });
 }
 
 /**
@@ -59,7 +103,8 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 const createWindow = () => {
-  const mainWindow = new BrowserWindow({
+  rendererReady = false;
+  mainWindow = new BrowserWindow({
     width: 275,
     height: 480,
     minWidth: 275,
@@ -73,6 +118,12 @@ const createWindow = () => {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    rendererReady = true;
+    sendOpenPaths(pendingOpenPaths);
+    pendingOpenPaths = [];
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -214,6 +265,9 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+  // Cold launch-with-file on Windows/Linux arrives as an argv entry rather
+  // than an event; macOS's equivalent is the 'open-file' listener above.
+  sendOpenPaths(audioPathsFromArgv(process.argv));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

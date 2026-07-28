@@ -9,6 +9,7 @@ A tiny retro MP3 player for the desktop, inspired by classic Winamp — original
 - Play/pause/stop/prev/next, seek bar with elapsed/remaining time, volume + balance
 - 10-band graphic equalizer (60Hz–16kHz) with presets, a preamp, and an on/off toggle — implemented with real `BiquadFilterNode`s, not cosmetic
 - Editable playlist: add via file picker or drag-and-drop from Finder, reorder, remove, save/load as JSON
+- Registered as a Finder "Open With" handler and a "Set As Default" candidate for mp3/m4a/wav/ogg/oga/flac/opus/weba — double-click or Open-With a file and it launches (or focuses the running instance) and plays it immediately
 - Retro spectrum-bars / oscilloscope visualizer (click it to cycle modes)
 - A llama in the LCD panel that nods its head along to the music
 - Shuffle: plays every track once before repeating (Fisher-Yates), not random-each-time
@@ -59,9 +60,44 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.llamaamp.app" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon.icns" "$PLIST"
 
+# electron-packager applies packagerConfig.extendInfo (forge.config.js) automatically;
+# this manual path bypasses that, so the Open With / document-type registration has
+# to be merged into Info.plist by hand.
+python3 - "$PLIST" <<'PYEOF'
+import plistlib, sys
+p = sys.argv[1]
+with open(p, "rb") as f:
+    data = plistlib.load(f)
+data["CFBundleDocumentTypes"] = [{
+    "CFBundleTypeName": "Audio File",
+    "CFBundleTypeRole": "Viewer",
+    "LSHandlerRank": "Alternate",
+    "LSItemContentTypes": [
+        "public.mp3", "com.apple.m4a-audio", "com.microsoft.waveform-audio",
+        "org.xiph.ogg-audio", "org.xiph.flac", "org.xiph.opus",
+    ],
+}]
+data["UTImportedTypeDeclarations"] = [
+    {"UTTypeIdentifier": "org.xiph.ogg-audio", "UTTypeConformsTo": ["public.audio"],
+     "UTTypeDescription": "Ogg Audio", "UTTypeTagSpecification": {"public.filename-extension": ["ogg", "oga"]}},
+    {"UTTypeIdentifier": "org.xiph.flac", "UTTypeConformsTo": ["public.audio"],
+     "UTTypeDescription": "FLAC Audio", "UTTypeTagSpecification": {"public.filename-extension": ["flac"]}},
+    {"UTTypeIdentifier": "org.xiph.opus", "UTTypeConformsTo": ["public.audio"],
+     "UTTypeDescription": "Opus Audio", "UTTypeTagSpecification": {"public.filename-extension": ["opus", "weba"]}},
+]
+with open(p, "wb") as f:
+    plistlib.dump(data, f)
+PYEOF
+
 codesign --force --deep --sign - "$APP"
 rm -rf "/Applications/Llama Amp.app"
 cp -R "$APP" /Applications/
+
+# Finder/LaunchServices cache app→document-type bindings and won't pick up a
+# replaced bundle's CFBundleDocumentTypes on their own; force a re-scan and
+# restart Finder so "Open With" reflects the new registration immediately.
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "/Applications/Llama Amp.app"
+killall Finder
 ```
 
 This is the same manual packaging method [documented by Electron itself](https://www.electronjs.org/docs/latest/tutorial/application-distribution) — it just skips whatever `electron-packager` is getting stuck on.
@@ -83,6 +119,8 @@ A normal Terminal or double-clicking the app from Finder is unaffected.
 Electron + Vite (via Electron Forge), plain HTML/CSS/JS — no frontend framework. Audio graph: `<audio>` → `MediaElementAudioSourceNode` → preamp `GainNode` → 10× `BiquadFilterNode` → `StereoPannerNode` → master `GainNode` → `AnalyserNode` → destination.
 
 Tracks are streamed straight from disk via a custom `llama-media://` protocol (registered in `src/main/main.js`, backed by Electron's `net.fetch` on the `file://` URL with hand-rolled `Range`/`Content-Range` handling) rather than read whole into memory and copied across IPC. The renderer runs under a strict `Content-Security-Policy` and a sandboxed, context-isolated preload with a narrow `window.api` surface — no raw `ipcRenderer` exposure.
+
+Launch-with-file is handled two ways, since macOS and Windows/Linux don't agree on how a "open this file with this app" request reaches the process: macOS delivers it as an `open-file` Apple Event (handled before `app.whenReady()`, since it can fire on cold launch), while Windows/Linux pass the path as an argv entry, picked up either at launch or via `second-instance` (the app takes a single-instance lock so a second launch-with-file focuses the existing window instead of opening a duplicate).
 
 ## License
 

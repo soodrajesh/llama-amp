@@ -102,6 +102,16 @@ export class Player extends EventTarget {
     return added.length;
   }
 
+  /** Add paths and, if nothing is currently playing, start at the first newly-added track. */
+  async openPaths(paths) {
+    const startIndex = this.tracks.length;
+    const added = await this.addPaths(paths);
+    if (added > 0 && this.currentIndex === -1) {
+      await this.start(startIndex);
+    }
+    return added;
+  }
+
   removeAt(index) {
     const wasCurrent = index === this.currentIndex;
     this.tracks.splice(index, 1);

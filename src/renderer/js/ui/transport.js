@@ -16,11 +16,7 @@ export function initTransport(player) {
   openBtn.addEventListener('click', async () => {
     const paths = await window.api.openAudioFiles();
     if (paths.length === 0) return;
-    const startIndex = player.tracks.length;
-    await player.addPaths(paths);
-    if (player.currentIndex === -1) {
-      await player.start(startIndex);
-    }
+    await player.openPaths(paths);
   });
 
   shuffleBtn.addEventListener('click', () => player.setShuffle(!player.shuffle));
