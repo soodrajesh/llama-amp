@@ -116,7 +116,6 @@ export class AudioEngine {
     this.storedBalance = balanceNeg1To1;
     if (this.panner) this.panner.pan.value = balanceNeg1To1;
   }
-
 }
 
 function dbToGain(db) {

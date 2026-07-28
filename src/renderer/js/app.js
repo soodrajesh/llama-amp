@@ -8,42 +8,58 @@ import { initDragDrop } from './ui/dragDrop.js';
 import { initLlama } from './ui/llama.js';
 import { initVisualizer } from './ui/visualizer.js';
 import { initLlamaDancer } from './ui/llamaDancer.js';
+import { initMediaSession } from './ui/mediaSession.js';
+import { initKeyboard } from './ui/keyboard.js';
+import { initShadeMode } from './ui/shadeMode.js';
+import { restoreSession, initSessionPersistence } from './ui/session.js';
 
 const player = new Player();
 
 // Launched (or relaunched) with a file via the OS "Open With" / double-click path.
 window.api.onOpenFiles((filePaths) => player.openPaths(filePaths));
 
-initTransport(player);
-initSeekbar(player);
-initVolumeBalance(player);
-initEqualizerPanel(player);
-initPlaylist(player);
-initDragDrop(player);
-initLlama(player);
-initVisualizer(player);
-initLlamaDancer(player);
+async function main() {
+  // Restored first so the volume/balance sliders already hold the saved values
+  // by the time initVolumeBalance() reads them on init below.
+  await restoreSession(player);
 
-const eqPanel = document.getElementById('eq-panel');
-const plPanel = document.getElementById('pl-panel');
-const toggleEqBtn = document.getElementById('toggle-eq');
-const togglePlBtn = document.getElementById('toggle-pl');
-const minimizeBtn = document.getElementById('minimize-btn');
-const closeBtn = document.getElementById('close-btn');
+  initTransport(player);
+  initSeekbar(player);
+  initVolumeBalance(player);
+  initEqualizerPanel(player);
+  initPlaylist(player);
+  initDragDrop(player);
+  initLlama(player);
+  initVisualizer(player);
+  initLlamaDancer(player);
+  initMediaSession(player);
+  initKeyboard(player);
+  initShadeMode();
+  initSessionPersistence(player);
 
-toggleEqBtn.addEventListener('click', () => {
-  eqPanel.hidden = !eqPanel.hidden;
-  toggleEqBtn.classList.toggle('active', !eqPanel.hidden);
-});
+  const eqPanel = document.getElementById('eq-panel');
+  const plPanel = document.getElementById('pl-panel');
+  const toggleEqBtn = document.getElementById('toggle-eq');
+  const togglePlBtn = document.getElementById('toggle-pl');
+  const minimizeBtn = document.getElementById('minimize-btn');
+  const closeBtn = document.getElementById('close-btn');
 
-togglePlBtn.addEventListener('click', () => {
-  plPanel.hidden = !plPanel.hidden;
-  togglePlBtn.classList.toggle('active', !plPanel.hidden);
-});
+  toggleEqBtn.addEventListener('click', () => {
+    eqPanel.hidden = !eqPanel.hidden;
+    toggleEqBtn.classList.toggle('active', !eqPanel.hidden);
+  });
 
-minimizeBtn.addEventListener('click', () => window.api.minimizeWindow());
-closeBtn.addEventListener('click', () => window.close());
+  togglePlBtn.addEventListener('click', () => {
+    plPanel.hidden = !plPanel.hidden;
+    togglePlBtn.classList.toggle('active', !plPanel.hidden);
+  });
 
-// Start with the playlist visible since there's no audio loaded yet.
-plPanel.hidden = false;
-togglePlBtn.classList.add('active');
+  minimizeBtn.addEventListener('click', () => window.api.minimizeWindow());
+  closeBtn.addEventListener('click', () => window.close());
+
+  // Start with the playlist visible since there's no audio loaded yet.
+  plPanel.hidden = false;
+  togglePlBtn.classList.add('active');
+}
+
+main();

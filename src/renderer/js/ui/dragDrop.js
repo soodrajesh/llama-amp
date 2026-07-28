@@ -18,8 +18,12 @@ export function initDragDrop(player) {
     el.addEventListener('drop', async (e) => {
       e.preventDefault();
       highlight(false);
-      const files = [...(e.dataTransfer?.files ?? [])].filter((f) => AUDIO_EXT_RE.test(f.name));
-      if (files.length === 0) return;
+      const dropped = [...(e.dataTransfer?.files ?? [])];
+      const files = dropped.filter((f) => AUDIO_EXT_RE.test(f.name));
+      if (files.length === 0) {
+        if (dropped.length > 0) player.notify('No supported audio files in that drop');
+        return;
+      }
       const paths = files.map((file) => window.api.getPathForFile(file));
       await player.openPaths(paths);
     });

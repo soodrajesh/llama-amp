@@ -9,6 +9,9 @@ export function initPlaylist(player) {
   let selectedIndex = -1;
   let dragFromIndex = -1;
 
+  list.tabIndex = 0;
+  list.setAttribute('role', 'listbox');
+
   // Full DOM rebuild: only needed when the track list itself changes shape.
   function renderList() {
     list.innerHTML = '';
@@ -17,6 +20,8 @@ export function initPlaylist(player) {
       li.className = 'pl-item';
       li.draggable = true;
       li.dataset.index = String(index);
+      li.id = `pl-item-${index}`;
+      li.setAttribute('role', 'option');
 
       const idx = document.createElement('span');
       idx.className = 'pl-index';
@@ -38,7 +43,9 @@ export function initPlaylist(player) {
       const index = Number(li.dataset.index);
       li.classList.toggle('selected', index === selectedIndex);
       li.classList.toggle('playing', index === player.currentIndex);
+      li.setAttribute('aria-selected', String(index === selectedIndex));
     });
+    list.setAttribute('aria-activedescendant', selectedIndex === -1 ? '' : `pl-item-${selectedIndex}`);
   }
 
   // Delegated listeners on the <ul> instead of six per row, so renderList() doesn't
@@ -53,6 +60,20 @@ export function initPlaylist(player) {
   list.addEventListener('dblclick', (e) => {
     const li = e.target.closest('.pl-item');
     if (li) player.playIndex(Number(li.dataset.index));
+  });
+
+  list.addEventListener('keydown', (e) => {
+    if (player.tracks.length === 0) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const delta = e.key === 'ArrowDown' ? 1 : -1;
+      const base = selectedIndex === -1 ? (delta === 1 ? -1 : player.tracks.length) : selectedIndex;
+      selectedIndex = Math.min(player.tracks.length - 1, Math.max(0, base + delta));
+      updateHighlights();
+      list.querySelector(`#pl-item-${selectedIndex}`)?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && selectedIndex !== -1) {
+      player.playIndex(selectedIndex);
+    }
   });
 
   list.addEventListener('dragstart', (e) => {

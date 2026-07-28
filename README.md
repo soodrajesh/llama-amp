@@ -8,12 +8,28 @@ A tiny retro MP3 player for the desktop, inspired by classic Winamp — original
 
 - Play/pause/stop/prev/next, seek bar with elapsed/remaining time, volume + balance
 - 10-band graphic equalizer (60Hz–16kHz) with presets, a preamp, and an on/off toggle — implemented with real `BiquadFilterNode`s, not cosmetic
-- Editable playlist: add via file picker or drag-and-drop from Finder, reorder, remove, save/load as JSON
-- Registered as a Finder "Open With" handler and a "Set As Default" candidate for mp3/m4a/wav/ogg/oga/flac/opus/weba — double-click or Open-With a file and it launches (or focuses the running instance) and plays it immediately
+- Editable playlist: add files, folders (scanned recursively), or drag-and-drop from Finder; reorder, remove, save/load as JSON or M3U/M3U8
+- ID3 tag reading (title/artist/album + embedded artwork) fills in proper track names automatically instead of showing raw filenames
+- OS media integration via `navigator.mediaSession` — macOS Control Center/lock-screen "Now Playing", with artwork, plus hardware/Bluetooth media keys
+- Registered as a Finder "Open With" handler for mp3/m4a/wav/ogg/oga/flac/opus/weba — double-click or Open-With a file and it launches (or focuses the running instance) and plays it immediately
+- Session persistence: window position/size, volume/balance, and the last playlist are restored on next launch
+- Shade mode: double-click the titlebar to collapse to just the transport row, Winamp-style
+- In-app keyboard shortcuts (see below)
 - Retro spectrum-bars / oscilloscope visualizer (click it to cycle modes)
 - A llama in the LCD panel that nods its head along to the music
 - Shuffle: plays every track once before repeating (Fisher-Yates), not random-each-time
 - Local files only — no bundled tracks, no network streaming, no telemetry
+
+### Keyboard shortcuts
+
+Active whenever no control (slider, button, etc.) has focus:
+
+| Key   | Action                |
+| ----- | --------------------- |
+| Space | Play / pause          |
+| ← / → | Previous / next track |
+| ↑ / ↓ | Volume up / down      |
+| S     | Stop                  |
 
 ## Getting started
 
@@ -114,6 +130,17 @@ env -u ELECTRON_RUN_AS_NODE npm start
 
 A normal Terminal or double-clicking the app from Finder is unaffected.
 
+## Development
+
+```bash
+npm run lint      # ESLint
+npm run format    # Prettier, writes in place
+npm test          # Vitest, unit tests for the pure logic (range parsing, shuffle,
+                   # M3U/JSON playlist formats, EQ math, window-bounds validation)
+```
+
+CI (`.github/workflows/ci.yml`) runs lint, a Prettier check, and the test suite on every push/PR to `main`.
+
 ## Tech stack
 
 Electron + Vite (via Electron Forge), plain HTML/CSS/JS — no frontend framework. Audio graph: `<audio>` → `MediaElementAudioSourceNode` → preamp `GainNode` → 10× `BiquadFilterNode` → `StereoPannerNode` → master `GainNode` → `AnalyserNode` → destination.
@@ -121,6 +148,16 @@ Electron + Vite (via Electron Forge), plain HTML/CSS/JS — no frontend framewor
 Tracks are streamed straight from disk via a custom `llama-media://` protocol (registered in `src/main/main.js`, backed by Electron's `net.fetch` on the `file://` URL with hand-rolled `Range`/`Content-Range` handling) rather than read whole into memory and copied across IPC. The renderer runs under a strict `Content-Security-Policy` and a sandboxed, context-isolated preload with a narrow `window.api` surface — no raw `ipcRenderer` exposure.
 
 Launch-with-file is handled two ways, since macOS and Windows/Linux don't agree on how a "open this file with this app" request reaches the process: macOS delivers it as an `open-file` Apple Event (handled before `app.whenReady()`, since it can fire on cold launch), while Windows/Linux pass the path as an argv entry, picked up either at launch or via `second-instance` (the app takes a single-instance lock so a second launch-with-file focuses the existing window instead of opening a duplicate).
+
+ID3 tags are parsed in the main process with [`music-metadata`](https://github.com/Borewit/music-metadata) (pure JS, no native bindings) and fetched asynchronously per track after it's added to the playlist, so adding a large folder doesn't block the UI waiting on tag parsing — track names and `mediaSession` metadata just update in place once each file's tags resolve. Window position/size, volume/balance, and the playlist are persisted (window bounds to a small JSON file under `userData`, everything else to `localStorage`) and restored on next launch without auto-playing.
+
+The window-open dialog accepts files and folders together and expands folders recursively (`fs.readdir` with `recursive: true`) into the same extension allow-list used everywhere else. Playlists save/load as either JSON or M3U/M3U8 depending on the extension chosen in the save/open dialog.
+
+Shipped builds strip Electron's default application menu (and its Reload/DevTools accelerators) via `Menu.setApplicationMenu`; `npm start` keeps the full menu for debugging. Every `webContents` also gets a `setWindowOpenHandler`/`will-navigate` guard denying window-opens and top-level navigation, standard Electron hardening against a compromised renderer.
+
+## Testing notes
+
+Vitest covers the pure logic (`test/`) - Range parsing, shuffle order, EQ slider math, M3U/JSON (de)serialization, window-bounds screen validation - none of which need Electron or a DOM. The Electron-specific glue (IPC handlers, `contextBridge`, actual window resizing) is harder to unit test meaningfully; it's been checked by hand against a real packaged build (see the manual packaging section above) rather than automated.
 
 ## License
 

@@ -1,15 +1,6 @@
-import { EQ_LABELS, EQ_GAIN_RANGE_DB, EQ_PRESETS } from '../audio/eqBands.js';
+import { EQ_LABELS, EQ_PRESETS, EQ_SLIDER_STEPS, dbToSliderValue, sliderValueToDb } from '../audio/eqBands.js';
 
 const CUSTOM_PRESET_KEY = 'llamaamp:customPreset';
-const SLIDER_STEPS = 100; // slider resolution per band, mapped to +-EQ_GAIN_RANGE_DB
-
-function dbToSliderValue(db) {
-  return Math.round(((db + EQ_GAIN_RANGE_DB) / (2 * EQ_GAIN_RANGE_DB)) * SLIDER_STEPS);
-}
-
-function sliderValueToDb(value) {
-  return (value / SLIDER_STEPS) * (2 * EQ_GAIN_RANGE_DB) - EQ_GAIN_RANGE_DB;
-}
 
 export function initEqualizerPanel(player) {
   const slidersContainer = document.getElementById('eq-sliders');
@@ -31,8 +22,9 @@ export function initEqualizerPanel(player) {
     const input = document.createElement('input');
     input.type = 'range';
     input.min = '0';
-    input.max = String(SLIDER_STEPS);
+    input.max = String(EQ_SLIDER_STEPS);
     input.value = String(dbToSliderValue(0));
+    input.setAttribute('aria-label', isPreamp ? 'Preamp gain' : `${label} Hz band gain`);
 
     const labelEl = document.createElement('div');
     labelEl.className = 'eq-band-label';

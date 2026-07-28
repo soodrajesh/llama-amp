@@ -1,23 +1,47 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol, net } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, protocol, net, screen, Menu } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { parseFile } from 'music-metadata';
 import started from 'electron-squirrel-startup';
+import { AUDIO_EXTENSIONS, isAllowedAudioPath, audioPathsFromArgv, parseRange } from './mediaUtils.js';
+import { createWindowStateStore, boundsAreOnScreen } from './windowState.js';
+import { serializeM3U, parseM3U, serializeJSON, parseJSON } from './playlistFormats.js';
 
 if (started) {
   app.quit();
 }
 
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.oga', '.flac', '.opus', '.weba']);
 const MEDIA_SCHEME = 'llama-media';
+const DEFAULT_WIDTH = 275;
+const DEFAULT_HEIGHT = 480;
+const MIN_WIDTH = 275;
+const MIN_HEIGHT = 116;
+const SHADE_HEIGHT = 66;
 
-function isAllowedAudioPath(filePath) {
-  return AUDIO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+/** Renderer-side URL for a local track, handled by the MEDIA_SCHEME protocol below. */
+function toMediaUrl(filePath) {
+  return `${MEDIA_SCHEME}://play/${encodeURIComponent(filePath)}`;
 }
 
-/** Command-line args (Windows/Linux launch-with-file, or a relaunch forwarded via second-instance). */
-function audioPathsFromArgv(argv) {
-  return argv.filter(isAllowedAudioPath).map((p) => path.resolve(p));
+async function expandToAudioFiles(paths) {
+  const results = [];
+  for (const entryPath of paths) {
+    const stat = await fs.stat(entryPath).catch(() => null);
+    if (!stat) continue;
+    if (stat.isFile()) {
+      if (isAllowedAudioPath(entryPath)) results.push(entryPath);
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+    const entries = await fs.readdir(entryPath, { withFileTypes: true, recursive: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const full = path.join(entry.parentPath ?? entry.path ?? entryPath, entry.name);
+      if (isAllowedAudioPath(full)) results.push(full);
+    }
+  }
+  return results.sort((a, b) => a.localeCompare(b));
 }
 
 // Files the OS wants opened before the renderer has a listener attached (cold
@@ -25,6 +49,9 @@ function audioPathsFromArgv(argv) {
 let mainWindow = null;
 let rendererReady = false;
 let pendingOpenPaths = [];
+let windowStateStore = null;
+let isShaded = false;
+let preShadeHeight = DEFAULT_HEIGHT;
 
 function sendOpenPaths(paths) {
   if (paths.length === 0) return;
@@ -59,39 +86,12 @@ if (!app.requestSingleInstanceLock()) {
   });
 }
 
-/**
- * net.fetch(file://...) correctly slices the body for a Range request but
- * never reports it - it comes back as a bare 200 with no Content-Length or
- * Content-Range, so <audio> has no way to tell the resource is seekable at
- * all and treats everything past what it has already buffered as
- * unseekable. Range has to be parsed and the response metadata constructed
- * by hand instead of trusting the passthrough.
- */
-function parseRange(rangeHeader, size) {
-  if (!rangeHeader) return null;
-  const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
-  if (!match) return 'unsatisfiable';
-  const [, startStr, endStr] = match;
-  let start;
-  let end;
-  if (startStr === '') {
-    if (endStr === '') return 'unsatisfiable';
-    start = Math.max(0, size - Number(endStr));
-    end = size - 1;
-  } else {
-    start = Number(startStr);
-    end = endStr === '' ? size - 1 : Math.min(Number(endStr), size - 1);
-  }
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start > end || start < 0 || start >= size) {
-    return 'unsatisfiable';
-  }
-  return { start, end };
-}
-
-/** Renderer-side URL for a local track, handled by the MEDIA_SCHEME protocol below. */
-function toMediaUrl(filePath) {
-  return `${MEDIA_SCHEME}://play/${encodeURIComponent(filePath)}`;
-}
+// A renderer compromised via a future dependency shouldn't be able to pop
+// windows or navigate the app away from its own bundled page.
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-navigate', (navEvent) => navEvent.preventDefault());
+});
 
 // Must run before app is ready. "stream: true" lets protocol.handle return a
 // streamed Response instead of buffering the whole body first.
@@ -104,11 +104,19 @@ protocol.registerSchemesAsPrivileged([
 
 const createWindow = () => {
   rendererReady = false;
+  isShaded = false;
+
+  const saved = windowStateStore?.load();
+  const useSaved = saved && boundsAreOnScreen(saved, screen.getAllDisplays());
+  preShadeHeight = useSaved ? saved.height : DEFAULT_HEIGHT;
+
   mainWindow = new BrowserWindow({
-    width: 275,
-    height: 480,
-    minWidth: 275,
-    minHeight: 116,
+    x: useSaved ? saved.x : undefined,
+    y: useSaved ? saved.y : undefined,
+    width: useSaved ? saved.width : DEFAULT_WIDTH,
+    height: useSaved ? saved.height : DEFAULT_HEIGHT,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     frame: false,
     resizable: true,
     backgroundColor: '#1c1f26',
@@ -118,6 +126,16 @@ const createWindow = () => {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  const persistBounds = () => {
+    if (isShaded) return;
+    windowStateStore?.save(mainWindow.getBounds());
+  };
+  mainWindow.on('resize', persistBounds);
+  mainWindow.on('move', persistBounds);
+  mainWindow.on('close', () => {
+    if (!isShaded) windowStateStore?.saveNow(mainWindow.getBounds());
   });
 
   mainWindow.webContents.once('did-finish-load', () => {
@@ -139,14 +157,34 @@ ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
 
+ipcMain.on('window:setShade', (event, shaded) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  const [width] = win.getContentSize();
+  if (shaded && !isShaded) {
+    const [, height] = win.getContentSize();
+    preShadeHeight = height;
+    isShaded = true;
+    win.setMinimumSize(MIN_WIDTH, SHADE_HEIGHT);
+    win.setContentSize(width, SHADE_HEIGHT);
+  } else if (!shaded && isShaded) {
+    isShaded = false;
+    win.setMinimumSize(MIN_WIDTH, MIN_HEIGHT);
+    win.setContentSize(width, preShadeHeight);
+  }
+});
+
 ipcMain.handle('dialog:openAudioFiles', async () => {
+  // macOS lets a single panel pick files or folders together; Windows/Linux
+  // dialogs generally honor only one of the two, so folder-add there may
+  // need a second pass - not verified on those platforms.
   const result = await dialog.showOpenDialog({
-    title: 'Open Audio Files',
-    properties: ['openFile', 'multiSelections'],
+    title: 'Open Audio Files or Folders',
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
     filters: [{ name: 'Audio', extensions: [...AUDIO_EXTENSIONS].map((e) => e.slice(1)) }],
   });
   if (result.canceled) return [];
-  return result.filePaths.filter(isAllowedAudioPath);
+  return expandToAudioFiles(result.filePaths);
 });
 
 ipcMain.handle('media:urlFor', async (_event, filePath) => {
@@ -154,7 +192,30 @@ ipcMain.handle('media:urlFor', async (_event, filePath) => {
   const resolved = path.resolve(filePath);
   const stat = await fs.stat(resolved).catch(() => null);
   if (!stat || !stat.isFile()) return null;
+  try {
+    app.addRecentDocument(resolved);
+  } catch {
+    // macOS/Windows only; harmless no-op elsewhere.
+  }
   return toMediaUrl(resolved);
+});
+
+ipcMain.handle('media:metadataFor', async (_event, filePath) => {
+  if (typeof filePath !== 'string' || !isAllowedAudioPath(filePath)) return null;
+  const resolved = path.resolve(filePath);
+  try {
+    const { common } = await parseFile(resolved);
+    const picture = common.picture?.[0];
+    return {
+      title: common.title || null,
+      artist: common.artist || null,
+      album: common.album || null,
+      artwork: picture ? `data:${picture.format};base64,${Buffer.from(picture.data).toString('base64')}` : null,
+    };
+  } catch {
+    // Unreadable/corrupt tags shouldn't block playback - just no metadata.
+    return null;
+  }
 });
 
 ipcMain.handle('fs:validatePaths', async (_event, filePaths) => {
@@ -172,10 +233,15 @@ ipcMain.handle('playlist:save', async (_event, tracks) => {
   const result = await dialog.showSaveDialog({
     title: 'Save Playlist',
     defaultPath: 'playlist.json',
-    filters: [{ name: 'Playlist', extensions: ['json'] }],
+    filters: [
+      { name: 'Playlist JSON', extensions: ['json'] },
+      { name: 'M3U Playlist', extensions: ['m3u', 'm3u8'] },
+    ],
   });
   if (result.canceled || !result.filePath) return false;
-  await fs.writeFile(result.filePath, JSON.stringify(tracks, null, 2), 'utf-8');
+  const ext = path.extname(result.filePath).toLowerCase();
+  const content = ext === '.m3u' || ext === '.m3u8' ? serializeM3U(tracks) : serializeJSON(tracks);
+  await fs.writeFile(result.filePath, content, 'utf-8');
   return true;
 });
 
@@ -183,21 +249,28 @@ ipcMain.handle('playlist:load', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Load Playlist',
     properties: ['openFile'],
-    filters: [{ name: 'Playlist', extensions: ['json'] }],
+    filters: [{ name: 'Playlist', extensions: ['json', 'm3u', 'm3u8'] }],
   });
   if (result.canceled || !result.filePaths[0]) return null;
-  const raw = await fs.readFile(result.filePaths[0], 'utf-8');
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
+  const filePath = result.filePaths[0];
+  const ext = path.extname(filePath).toLowerCase();
+  const raw = await fs.readFile(filePath, 'utf-8');
+
+  let entries;
+  if (ext === '.m3u' || ext === '.m3u8') {
+    entries = parseM3U(raw, path.dirname(filePath));
+  } else {
+    try {
+      entries = parseJSON(raw);
+    } catch {
+      entries = [];
+    }
   }
-  if (!Array.isArray(parsed)) return [];
+
   // Playlist files are user-editable, so entries get the same extension check as
   // freshly added paths, and the shape is normalised rather than trusted.
-  const existing = await Promise.all(
-    parsed.map(async (entry) => {
+  const checked = await Promise.all(
+    entries.map(async (entry) => {
       if (!entry || typeof entry.path !== 'string' || !isAllowedAudioPath(entry.path)) return null;
       const stat = await fs.stat(entry.path).catch(() => null);
       if (!stat || !stat.isFile()) return null;
@@ -207,10 +280,22 @@ ipcMain.handle('playlist:load', async () => {
       };
     })
   );
-  return existing.filter(Boolean);
+  const tracks = checked.filter(Boolean);
+  return { tracks, skipped: entries.length - tracks.length };
 });
 
 app.whenReady().then(() => {
+  windowStateStore = createWindowStateStore(app.getPath('userData'));
+
+  // Strip the default menu (and its DevTools/Reload accelerators) from shipped
+  // builds only - dev mode via `npm start` keeps it for debugging. macOS keeps
+  // a minimal app menu so Cmd+Q still works with no menu bar visible.
+  if (app.isPackaged) {
+    Menu.setApplicationMenu(
+      process.platform === 'darwin' ? Menu.buildFromTemplate([{ label: app.name, submenu: [{ role: 'quit' }] }]) : null
+    );
+  }
+
   // Streams the file straight from disk via Chromium's own file-backed fetch,
   // instead of reading it whole into a Buffer and copying it across IPC.
   protocol.handle(MEDIA_SCHEME, async (request) => {

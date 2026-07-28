@@ -36,8 +36,8 @@
         <div class="titlebar-buttons">
           <button id="toggle-eq" class="chrome-btn" title="Toggle Equalizer">EQ</button>
           <button id="toggle-pl" class="chrome-btn" title="Toggle Playlist">PL</button>
-          <button id="minimize-btn" class="chrome-btn" title="Minimize">_</button>
-          <button id="close-btn" class="chrome-btn chrome-btn-close" title="Close">×</button>
+          <button id="minimize-btn" class="chrome-btn" title="Minimize" aria-label="Minimize">_</button>
+          <button id="close-btn" class="chrome-btn chrome-btn-close" title="Close" aria-label="Close">×</button>
         </div>
       </header>
 
@@ -58,35 +58,45 @@
             <div class="marquee" id="marquee">
               <span id="marquee-text">Llama Amp — open a track to begin</span>
             </div>
-            <canvas id="visualizer" class="visualizer" width="220" height="34" title="Click to change visualization"></canvas>
+            <canvas
+              id="visualizer"
+              class="visualizer"
+              width="220"
+              height="34"
+              title="Click to change visualization"
+              role="img"
+              aria-label="Audio visualizer, click to change mode"
+            ></canvas>
           </div>
         </div>
 
         <div class="seek-row">
-          <input type="range" id="seek-bar" min="0" max="1000" value="0" step="1" />
+          <input type="range" id="seek-bar" min="0" max="1000" value="0" step="1" aria-label="Seek" />
         </div>
 
         <div class="controls-row">
           <div class="transport">
-            <button id="prev-btn" class="chrome-btn transport-btn" title="Previous">⏮</button>
-            <button id="play-btn" class="chrome-btn transport-btn" title="Play">▶</button>
-            <button id="pause-btn" class="chrome-btn transport-btn" title="Pause">⏸</button>
-            <button id="stop-btn" class="chrome-btn transport-btn" title="Stop">⏹</button>
-            <button id="next-btn" class="chrome-btn transport-btn" title="Next">⏭</button>
-            <button id="open-btn" class="chrome-btn transport-btn" title="Open File(s)">⏏</button>
+            <button id="prev-btn" class="chrome-btn transport-btn" title="Previous" aria-label="Previous">⏮</button>
+            <button id="play-btn" class="chrome-btn transport-btn" title="Play" aria-label="Play">▶</button>
+            <button id="pause-btn" class="chrome-btn transport-btn" title="Pause" aria-label="Pause">⏸</button>
+            <button id="stop-btn" class="chrome-btn transport-btn" title="Stop" aria-label="Stop">⏹</button>
+            <button id="next-btn" class="chrome-btn transport-btn" title="Next" aria-label="Next">⏭</button>
             <button
-              id="shuffle-btn"
-              class="chrome-btn transport-btn shuffle-btn"
-              title="Shuffle"
-              aria-pressed="false"
+              id="open-btn"
+              class="chrome-btn transport-btn"
+              title="Open File(s) or Folder"
+              aria-label="Open files or folder"
             >
+              ⏏
+            </button>
+            <button id="shuffle-btn" class="chrome-btn transport-btn shuffle-btn" title="Shuffle" aria-pressed="false">
               SHUF
             </button>
           </div>
           <div class="volume-balance">
-            <label class="mini-label">VOL</label>
+            <label class="mini-label" for="volume-slider">VOL</label>
             <input type="range" id="volume-slider" min="0" max="100" value="80" />
-            <label class="mini-label">BAL</label>
+            <label class="mini-label" for="balance-slider">BAL</label>
             <input type="range" id="balance-slider" min="-100" max="100" value="0" />
           </div>
         </div>

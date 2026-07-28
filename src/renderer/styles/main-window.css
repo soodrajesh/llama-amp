@@ -177,6 +177,20 @@
   width: 56px;
 }
 
+/* Shade mode: window is resized down to just the titlebar + transport row (see
+   window:setShade in main.js); these overrides win regardless of the EQ/PL
+   panels' own hidden-toggle state, which is left untouched underneath. */
+.chassis.shade .display,
+.chassis.shade .seek-row,
+.chassis.shade .eq-panel,
+.chassis.shade .pl-panel {
+  display: none !important;
+}
+
+.chassis.shade .main-panel {
+  padding-bottom: 4px;
+}
+
 .about-overlay {
   position: fixed;
   inset: 0;

@@ -1,6 +1,15 @@
 export const EQ_FREQUENCIES = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
 export const EQ_LABELS = ['60', '170', '310', '600', '1K', '3K', '6K', '12K', '14K', '16K'];
 export const EQ_GAIN_RANGE_DB = 12;
+export const EQ_SLIDER_STEPS = 100; // slider resolution per band, mapped to +-EQ_GAIN_RANGE_DB
+
+export function dbToSliderValue(db) {
+  return Math.round(((db + EQ_GAIN_RANGE_DB) / (2 * EQ_GAIN_RANGE_DB)) * EQ_SLIDER_STEPS);
+}
+
+export function sliderValueToDb(value) {
+  return (value / EQ_SLIDER_STEPS) * (2 * EQ_GAIN_RANGE_DB) - EQ_GAIN_RANGE_DB;
+}
 
 // Each preset is { preamp, bands: number[10] } in dB, within ±EQ_GAIN_RANGE_DB.
 export const EQ_PRESETS = {

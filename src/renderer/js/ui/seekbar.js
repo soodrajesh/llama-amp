@@ -73,6 +73,7 @@ export function initSeekbar(player) {
   });
   player.addEventListener('playlist', updateMarquee);
   player.addEventListener('playerror', (e) => showError(e.detail.message));
+  player.addEventListener('notice', (e) => showError(e.detail.message));
 
   updateTime();
   updateMarquee();

@@ -1,4 +1,5 @@
 import { AudioEngine } from './audio/audioEngine.js';
+import { computeShuffleOrder } from './audio/shuffle.js';
 
 function basename(filePath) {
   return filePath.split(/[\\/]/).pop();
@@ -66,25 +67,8 @@ export class Player extends EventTarget {
     this.emit('shuffle');
   }
 
-  /**
-   * Fisher-Yates over the track indices. The currently playing track is moved to
-   * the front so the permutation continues from where the listener already is
-   * instead of possibly replaying it immediately.
-   */
   rebuildShuffleOrder() {
-    const indices = this.tracks.map((_, i) => i);
-    for (let i = indices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
-    }
-    if (this.currentIndex !== -1) {
-      const pos = indices.indexOf(this.currentIndex);
-      if (pos > 0) {
-        indices.splice(pos, 1);
-        indices.unshift(this.currentIndex);
-      }
-    }
-    this.shuffleOrder = indices;
+    this.shuffleOrder = computeShuffleOrder(this.tracks.length, this.currentIndex);
     this.shufflePos = this.currentIndex === -1 ? -1 : 0;
   }
 
@@ -99,6 +83,7 @@ export class Player extends EventTarget {
     this.tracks.push(...added);
     this.syncShuffle();
     this.emit('playlist');
+    if (added.length > 0) this.enrichMetadata(added);
     return added.length;
   }
 
@@ -110,6 +95,46 @@ export class Player extends EventTarget {
       await this.start(startIndex);
     }
     return added;
+  }
+
+  /**
+   * Fire-and-forget ID3 lookup for newly-added tracks: fills in a proper
+   * "Artist - Title" display name and artwork when available, without making
+   * addPaths() wait on tag parsing for every file in a large folder add.
+   */
+  async enrichMetadata(tracks) {
+    const results = await Promise.allSettled(
+      tracks.map(async (track) => ({ track, meta: await window.api.metadataFor(track.path) }))
+    );
+    let playlistChanged = false;
+    let currentTrackChanged = false;
+    for (const result of results) {
+      if (result.status !== 'fulfilled' || !result.value.meta) continue;
+      const { track, meta } = result.value;
+      if (meta.title) {
+        track.name = meta.artist ? `${meta.artist} - ${meta.title}` : meta.title;
+        playlistChanged = true;
+        if (track === this.currentTrack) currentTrackChanged = true;
+      }
+      if (meta.artist) track.artist = meta.artist;
+      if (meta.album) track.album = meta.album;
+      if (meta.artwork) track.artwork = meta.artwork;
+    }
+    if (playlistChanged) this.emit('playlist');
+    if (currentTrackChanged) this.emit('trackchange');
+  }
+
+  /** Informational (non-error) message for the marquee, e.g. restored/loaded-with-gaps notices. */
+  notify(message) {
+    this.emit('notice', { message });
+  }
+
+  /** Used by session restore to repopulate the playlist without touching playback state. */
+  restoreTracks(tracks) {
+    this.tracks = tracks;
+    this.syncShuffle();
+    this.emit('playlist');
+    if (tracks.length > 0) this.enrichMetadata(tracks);
   }
 
   removeAt(index) {
@@ -278,17 +303,24 @@ export class Player extends EventTarget {
   }
 
   async savePlaylist() {
-    return window.api.savePlaylist(this.tracks);
+    // Artwork/artist/album are ID3-derived and cheap to re-fetch; keeping them
+    // out of the saved file is what keeps playlist files small and portable.
+    const minimal = this.tracks.map((t) => ({ path: t.path, name: t.name }));
+    return window.api.savePlaylist(minimal);
   }
 
   async loadPlaylist() {
-    const tracks = await window.api.loadPlaylist();
-    if (!tracks) return false;
+    const result = await window.api.loadPlaylist();
+    if (!result) return false;
     this.stop();
-    this.tracks = tracks;
+    this.tracks = result.tracks;
     this.currentIndex = -1;
     this.syncShuffle();
     this.emit('playlist');
+    if (result.skipped > 0) {
+      this.notify(`Loaded ${result.tracks.length} track(s), ${result.skipped} missing`);
+    }
+    if (result.tracks.length > 0) this.enrichMetadata(result.tracks);
     return true;
   }
 }
